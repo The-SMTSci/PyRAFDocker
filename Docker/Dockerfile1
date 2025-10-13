@@ -1,0 +1,65 @@
+FROM ubuntu:24.04
+
+#############################################################################
+# docker image rm -f wg:1 && docker build -t wg:1 .
+#
+# docker run -it  -v /home/wayne/Configuration:/home/wayne  wg:1
+#
+# docker run -it   wg:1
+# xhost +SI:localuser:$USER$     
+#-----------------------------------------------------------------------------
+#  Dockerfile1  -> wg:
+#
+#  sudo xhost +si:inet:172.17.0.0/24          # run once on host.
+#  docker run -it -v /tmp/.X11-unix:/tmp/.X11-unix   \
+#                 -v ~/.Xauthority:/root/.Xauthority  \
+#                 -e DISPLAY=$DISPLAY                 \
+#                 wg:1  
+#
+#
+#-----------------------------------------------------------------------------
+# docker 
+# docker image rm -f wg:1
+#
+# add all docker container access to this machine.
+# xhost +si:inet:172.17.0.0/24
+#
+#configure shared paths from Docker -> Preferences... -> Resources -> File Sharing
+#
+#
+#############################################################################
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update
+
+RUN mkdir -p /mnt
+RUN mkdir -p /home/wayne
+RUN mkdir -p /opt
+
+
+RUN apt -y update
+RUN apt install -y apt-utils
+RUN apt install -y --no-install-recommends   \
+    x11-apps x11-utils    \
+    net-tools             \
+    iputils-ping          \
+    less                  \
+    locate                \
+    vim                   \
+    build-essential       \
+    openssh-server        \
+    openssh-client        \
+    ca-certificates       \
+    curl
+
+
+#    systemd               \
+#    systemd-sysv
+
+RUN  install -m 0755 -d /etc/apt/keyrings
+RUN  curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+RUN  chmod a+r /etc/apt/keyrings/docker.asc
+
+# New, now prefered, json CMD ["command" <,"option" ...>]
+CMD ["/bin/bash" ]
+

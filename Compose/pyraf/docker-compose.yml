@@ -1,0 +1,38 @@
+#############################################################################
+#
+# PyrafDocker/Compose/docker-compose.yml
+#
+#  docker rm $( docker ps -f "status=exited" -q )
+#  docker compose down -v --rmi all && docker compose build --no-cache
+#  
+#  docker compose run pyraf /bin/bash
+#  docker compose config
+#  sudo xhost +local:docker
+#  docker compose up
+#
+#
+# docker compose run -v /tmp/.X11-unix:/tmp/.X11-unix -v ~/.Xauthority:/root/.Xauthority -e DISPLAY=$DISPLAY -e USER=$USER pyraf /bin/bash
+#
+# A few env variables to time X11 to the host.
+# A few -v to allow the pwd where the container started to be the root of the data, or nearby
+#
+#
+#############################################################################
+services:
+  pyrafapp:
+    image: ubuntu:latest
+    environment:
+       - DISPLAY="$DISPLAY"
+       - USER="$USER"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /home/wayne/.Xauthority:/root/.Xauthority
+      - $HOME/Observations:/home/data
+  pyraf:
+    build: .
+    depends_on:
+      - pyrafapp
+
+
+
+
