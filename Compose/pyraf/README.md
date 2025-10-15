@@ -1,6 +1,8 @@
 Compose PyRAF for Spectroscopy
 ==============================
 
+This project uses Docker to isolate the host system quirks that prevent IRAF/PyRAF from running nativly.
+
 The Dockerfile takes pains to create a complete environmnet sans data to support IRAF/PyRAF
 to process data. This container relies on the user's .Xauthority and $DISPLAY variables.
 
@@ -23,3 +25,7 @@ An bash alias for pyraf that runs this command is:
                        -e USER=$USER pyraf /bin/bash
                    }
 ```
+
+Remember! Deleting files in bin also kills the files in your host machine.
+
+
