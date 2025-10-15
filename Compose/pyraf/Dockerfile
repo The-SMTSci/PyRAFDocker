@@ -29,9 +29,11 @@ FROM ubuntu:latest
 #
 #############################################################################
 
-ENV DEBIAN_FRONTEND=noninteractive
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update
 
+ENV USER=wayne
+SHELL ["/bin/bash", "-c"]
 
 RUN apt-get install -y apt-utils
 
@@ -72,7 +74,6 @@ RUN apt-get install -y   --no-install-recommends \
         less                  \
         locate                \
         emacs                 \
-        emacs-nox             \
         vim                   \
         packaging-dev         \
         net-tools
@@ -96,11 +97,20 @@ RUN apt-get install -y --no-install-recommends      \
         libopencv-dev         \
         libogg-dev
 
+
+#############################################################################
+# Includes IRAF, PyRAF and ds9.
 RUN apt-get install -y iraf
 RUN apt-get install -y python3-pyraf
 RUN apt-get install -y python3.12-venv
 
-RUN mkdir -p /home/data
+RUN mkdir -p /root/data
+RUN mkdir -p /root/bin
+RUN mkdir -p /root/.iraf
+
+COPY ./dockeriraf /root/.iraf
+COPY ./dot.ds9.ini /root/.ds9.ini
+
 
 # We're inside of a highly privileged Docker container. Don't do this
 # on a open file system.
@@ -112,7 +122,17 @@ RUN mkdir -p /home/data
 #   pip3 install numpy   && \
 #   pip3 install pandas
 
-WORKDIR /home
+WORKDIR /root
+RUN python3 -m venv /root/pyraf
+ENV PATH="/root/pyraf/bin:$PATH:/root/bin"
+RUN pip3 install astropy
+RUN pip3 install numpy
+RUN pip3 install pandas
 
-CMD ["/usr/bin/bash" "-c" "/usr/bin/pyraf" ]
+
+ENV SHELL=/usr/bin/bash
+
+WORKDIR /root
+
+CMD ["/bin/bash"]
 
