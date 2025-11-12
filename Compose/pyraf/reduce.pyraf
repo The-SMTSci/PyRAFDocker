@@ -1,0 +1,167 @@
+#############################################################################
+#  PyRAF/Unix reduction steps for 
+#
+# /home/wayne/Observations/7Aug2024/usw
+#
+# mkdir $home/Observations/<date>
+# cd !$
+# startanalysis  # make the dirs
+# cd RawData
+# mv ~/Downloads/<date>zip .
+# unzip <date>zip  # cp the files to this dirctory
+# cd ../PreReduce
+# cp ../RawData/*fits .
+# fixnames
+# for f in *fits
+# fitserial    # Prepend a serial number
+# --- identify the types and targets
+# --- update the headers
+# hedit *fits DISPAXIS 1 update+ add+ ver- show- del-  # add dispaxis for us.
+# --- Make the job list.
+#
+# Start with this script and feather the nest.
+# 
+# To add comments to header cards; tedious
+# artdata
+# imhead afits.fits l+ > xxx
+# edit xxx and add the comment(s)  / ...comment...
+# mkheader afits.fits temp append-
+#
+# !reset to reset a terminal that is borked.
+# https://ds9.si.edu/doc/ref/command.html
+#############################################################################
+# HEREHEREHERE
+# get the env in gear. Install pyraflogin3 in ~/home/iraf.
+
+# add our mess to their mess
+sys.path = ['/root/pyraf/lib/python3.12/site-packages'] + sys.path
+
+import numpy as np
+import sys
+import os
+try:
+    from astropy.io import fits                               # be able to open files.
+except:
+    print("Statement: from astropy.io import fits, failed.")
+
+# remove burden of all those swithces for hedit.nhedit
+iraf.hedit.add       = iraf.yes                           # nail in hedit options
+iraf.hedit.addonly   = iraf.no                            # we want
+iraf.hedit.delete    = iraf.no
+iraf.hedit.verify    = iraf.no
+iraf.hedit.show      = iraf.no
+iraf.hedit.update    = iraf.yes
+
+iraf.nhedit.comment  = "FlexSpec1"   # default for this?
+iraf.nhedit.add      = iraf.yes     
+iraf.nhedit.addonly  = iraf.no                            # we want
+iraf.nhedit.show     = iraf.no  
+iraf.nhedit.verify   = iraf.no  
+iraf.nhedit.delete   = iraf.no  
+iraf.nhedit.update   = iraf.yes     
+
+##############################################################################
+# Me playing with getting the paths into both IRAF variables and 
+#  python variables.
+##############################################################################
+HOME=os.getenv('HOME')
+
+try:
+    if(os.path.exists(f"{HOME}/.iraf")):
+        print('loading pyraflogin3')
+        sys.path.insert(0, f"{HOME}/.iraf")
+        from pyraflogin3 import *
+except:
+    print("Unable to load pyraflogin3.py -- check the environment and startup.")
+
+
+
+# set  OBSROOT=INIT  # for IRAF commands
+# set  OBS=OBSROOT$/PreReduce/
+!printf "set OBSROOT=$(pwd)/..\n"           > setum.cl  # BASH trick
+!printf "set OBS=$(pwd)/../PreAnalysis\n"  >> setum.cl
+cl < setum.cl
+
+show OBSROOT                                              # check work
+show OBS
+
+# Use Python/PyRAF to set bash ENV variables for scripts etc. Tie PyRAF env to bash env.
+# Rough equivalent of export.
+os.environ['OBSROOT'] = iraf.osfn("OBSROOT$")             # share with external files
+os.environ['OBS']     = iraf.osfn("OBS$")
+
+OBSROOT               = os.getenv("OBSROOT")              # make some python variables
+OBS                   = os.getenv("OBS")
+print(f"OBSROOT={OBSROOT}\nOBS={OBS}")
+
+if( os.getenv('TRIMSEC') is None):
+    trimsec = '[2000:4000,2200:2700]'
+    os.environ.setdefault('TRIMSEC',trimsec)
+    TRIMSEC = os.getenv('TRIMSEC')
+
+print(f'TRIMSEC={trimsec}')
+
+# example of a oneliner to show file and the plot matching the trim parameters
+# Consider writing a small bash script ds9view that does it all.
+# !ds9 -fits t_a11060_HD153613_20s_004747m9.fits  -region load ../usw/FS150_Spectrum.reg
+
+chdir OBSROOT$                                                             # Use IRAF lingo to change dirs
+!shopt -s nullglob; cp $OBSROOT/RawData/*fit $OBSROOT/RawData/*fits   .    # reduce data
+!for f in *zip; do mkdir -p RawData/attic; mv "$f"  RawData/attic; done  # move pesky zip files out of way.
+
+chdir OBS$
+pwd
+
+##############################################################################
+# Fix the names. This uses a file in ~/bin to do it's trick.
+# If you use my loginuser.cl file; then ll is declared as a foreign task.
+# It is the equivalent of ls -1 with the outout to l.l.
+##############################################################################
+
+ll *fits *fit
+!fixnames $(cat l.l)
+ll *fits
+!fitserial *fits
+
+##############################################################################
+# Add the generic cruft to the headers. using cl and imputing the .cl file
+# to make any changes we can do things. Checkout the fs600.cl and fs900.cl.
+# you can make one with the observers, and anything else you may like.
+# One can use several; say a subset with just the site; the instrument; the team(s)
+# etc. For us: ~/Observations/Chile/usw can hold these files.
+##############################################################################
+! ls -1 *fits > l.l
+
+
+##############################################################################
+#                             TRIM THE FILES
+#
+##############################################################################
+ll a*fits
+!if [ "$TRIMSEC" != ' ' ] ; then trim -s $TRIMSEC $(cat l.l) ; fi  # trim makes t_//@l.l output!
+
+!trim @l.l -s "[2000:4000,2200:2700]"
+
+##############################################################################
+# Make zeromaster. Instead of calling it masterzero, masterdark, masterflat --
+#   put the type first and use the <TAB> (file completion!) using the
+#   ze<TAB>! 
+##############################################################################
+ls -1 t_*Zero* > l.l
+hedit @l.l IMAGETYP zero           # set the IMAGETYP to zero to soothe zerocombine
+!rm -f zeromaster.fits             # prevent two extensions!!!!!
+zerocombine @l.l output=zeromaster.fits combine=median scale=none
+
+##############################################################################
+# OK: Now zero correct everything else, but t_Zero files
+#  grep -v <pattern> shows every line but those matching <pattern>
+# make a lot of z_t_*files; zero subtracted.
+##############################################################################
+! ls -1 *fits | grep -v t_Zero | grep -v *master*fits > l.l
+imarith @l.l - zeromaster.fits z_@l.l
+
+##############################################################################
+# The next thing to do is to segregate the observations. We need to
+# match science images together with their cals and flats
+# the ref images together with their cals and flats
+##############################################################################

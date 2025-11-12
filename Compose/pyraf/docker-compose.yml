@@ -32,5 +32,5 @@ services:
       - /home/wayne/.Xauthority:/root/.Xauthority         # required by X
       - $HOME/Observations:/home/data                     # Data to be analized.
       - $HOME/bin:/home/bin                               # loop in external utilities dir.
-      - $HOME/dockeriraf/.iraf:/root/.iraf                 # place to store uparams
+      - $HOME/dockeriraf/.iraf:/root/.iraf                # place to store uparams
 
